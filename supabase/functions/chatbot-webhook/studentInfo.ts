@@ -1,7 +1,9 @@
 // studentMajor.ts
 import { supabaseClient } from "./supabase.ts";
+// format student info fulfillment text
+import { formatStudentInfo } from "./formatStudentInfo.ts";
 
-export async function handleStudentMajorInfo(queryResult) {
+export async function handleStudentInfo(queryResult) {
     const studentId = queryResult?.parameters?.studentId;
     const studentName = queryResult?.parameters?.studentName?.name;
 
@@ -17,7 +19,7 @@ export async function handleStudentMajorInfo(queryResult) {
     if (studentId && !studentName) {
         const { data, error } = await supabaseClient
             .from("students")
-            .select("major")
+            .select("*")
             .eq("nim", studentId)
             .maybeSingle();
 
@@ -30,14 +32,14 @@ export async function handleStudentMajorInfo(queryResult) {
 
         return {
             fulfillmentText:
-                `Jurusan dari mahasiswa dengan NIM ${studentId} adalah ${data.major}`,
+                formatStudentInfo(data),
         }
     }
 
     if (!studentId && studentName) {
         const { data, error } = await supabaseClient
             .from("students")
-            .select("major")
+            .select("*")
             .ilike("name", `%${studentName}%`)
             .limit(1)
             .maybeSingle();
@@ -51,14 +53,14 @@ export async function handleStudentMajorInfo(queryResult) {
 
         return {
             fulfillmentText:
-                `Jurusan dari mahasiswa dengan nama ${studentName} adalah ${data.major}`,
+                formatStudentInfo(data),
         }
     }
 
     if (studentId && studentName) {
         const { data, error } = await supabaseClient
             .from("students")
-            .select("nim, name, major")
+            .select("*")
             .eq("nim", studentId)
             .ilike("name", `%${studentName}%`)
             .maybeSingle();
@@ -70,7 +72,7 @@ export async function handleStudentMajorInfo(queryResult) {
         }
 
         return {
-            fulfillmentText: `Mahasiswa bernama ${data.name} dengan NIM ${data.nim} berada di jurusan ${data.major}`,
+            fulfillmentText: formatStudentInfo(data),
         }
     }
 }
