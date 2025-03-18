@@ -4,22 +4,36 @@ import { supabaseClient } from "./supabase.ts";
 import { formatStudentInfo } from "./formatStudentInfo.ts";
 
 export async function handleStudentInfo(queryResult) {
+    //session path
+    const sessionPath = queryResult.outputContexts?.[0]?.name.split("/contexts/")[0];
+
+    // contexts given
+    const contexts = queryResult?.outputContexts || [];
+    const studentContext = contexts.find(ctx => ctx.name.includes("awaiting_student_id"));
+    console.log(`Student context: ${studentContext}`)
+    const studentNameFromContext = studentContext?.parameters?.studentName;
+    console.log(`Student name from context: ${studentNameFromContext}`)
+    const requestedFieldsFromContext = studentContext?.parameters?.student_attribute || [];
+
+    // parameters given
     const studentId = queryResult?.parameters?.studentId;
-    const studentName = queryResult?.parameters?.studentName?.name;
-    const requestedFields = Array.isArray(queryResult?.parameters?.student_attribute)
-        ? queryResult.parameters.student_attribute
-        : [];
+    // Extract studentName and attributes from Dialogflow parameters
+    let studentName = queryResult?.parameters?.studentName?.name || studentContext?.parameters?.studentName;
+    const requestedFields = (
+        Array.isArray(queryResult?.parameters?.student_attribute) && queryResult.parameters.student_attribute.length > 0
+    ) ? queryResult.parameters.student_attribute
+        : studentContext?.parameters?.student_attribute || [];
 
     console.log(`Received Student ID: ${studentId}, Name: ${studentName}`);
     console.log(`Requested fields: ${requestedFields}`);
 
-    if (!studentId && !studentName) {
+
+    if (!studentId && !studentName && !studentNameFromContext) {
         return {
             fulfillmentText:
                 "NIM atau nama mahasiswa diperlukan. Bisa berikan salah satu?",
         }
     }
-
 
     // Ensure fields are valid
     const validFields = ["name", "nim", "gender", "email", "phone", "major", "enrollment_year", "gpa"];
@@ -48,7 +62,7 @@ export async function handleStudentInfo(queryResult) {
     }
 
     // Run the query
-    const { data, error } = await query.maybeSingle();
+    const { data, error } = await query;
 
     // If error or no data was found
     if (error || !data) {
@@ -57,8 +71,32 @@ export async function handleStudentInfo(queryResult) {
         }
     }
 
+    if (data.length > 1) {
+        return {
+            fulfillmentText: `Ditemukan ${data.length} pada data mahasiswa yang dicari. Bisa berikan NIM atau detail lainnya?`,
+            outputContexts: [
+                {
+                    name: `${sessionPath}/contexts/awaiting_student_id`,
+                    lifespanCount: 3,
+                    parameters: {
+                        studentName: studentName,
+                        student_attribute: requestedFields
+                    }
+                }
+            ]
+        };
+    }
+
+    console.log("Context Before Returning Response:", JSON.stringify(studentContext, null, 2));
+    console.log("Final Parameters Sent in Context:", JSON.stringify({
+        studentName,
+        requestedFields
+    }, null, 2));
+
+
+    console.log("Database Query Result:", JSON.stringify(data, null, 2));
     return {
-        fulfillmentText: formatStudentInfo(data),
+        fulfillmentText: formatStudentInfo(data[0]),
     }
 
 }

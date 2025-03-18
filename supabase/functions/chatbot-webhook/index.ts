@@ -15,7 +15,7 @@ Deno.serve(async (req: Request) => {
     // Intent: Get Student Major Info
     if (intentName === "getStudentMajorInfo") {
       response = await handleStudentMajorInfo(queryResult);
-    } else if (intentName === "getStudentInfo") {
+    } else if (intentName === "getStudentInfo" || intentName === "getStudentInfo_provideNIM") {
       response = await handleStudentInfo(queryResult);
     }
 
